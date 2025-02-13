@@ -4,7 +4,7 @@ cask "prose" do
   arch arm: "aarch64", intel: "x86_64"
   arch_short = on_arch_conditional arm: "aarch64", intel: "x64"
 
-  sha256 arm:   "c000b3c1d0a5d3af3e9e61678c18c5acd119ea5bb77edbafe51d982ab1d7d2d5"
+  sha256 arm:   "c000b3c1d0a5d3af3e9e61678c18c5acd119ea5bb77edbafe51d982ab1d7d2d5",
          intel: "807dc92cd574da2d153850004e030bcbbc5dfaf1d537583f237afda822292eb8"
 
   url "https://files.prose.org/apps/versions/#{version}/#{platform}/#{arch}/Prose_#{version}_#{arch_short}.dmg"
