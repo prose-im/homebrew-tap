@@ -91,6 +91,7 @@ ARGS_=()
 for arg in "$@"; do
 	case $arg in
 		-y|--yes) PROCEED=1 ;;
+		--commit) COMMIT=1 ;;
 		--help) die 'Unsupported' || help ;;
 		--dry-run) die 'Unsupported' || export DRY_RUN=1 ;;
 		--debug) die 'Unsupported' || export LOG_DEBUG=1 ;;
@@ -101,6 +102,10 @@ done
 # Update command args to remove already parsed ones.
 set -- "${ARGS_[@]}"
 unset ARGS_
+
+if (( ${COMMIT:-0} )); then
+	git diff-index --quiet HEAD || die 'Your index contains uncommitted changes. Please commit or stash them before creating a release.'
+fi
 
 [[ "$#" == 1 ]] && NEW_VERSION="${1:?}" || die "Syntax: ${SELF:?} X.Y.Z"
 [[ "${NEW_VERSION:?}" =~ ^${SEMVER_REGEX}$ ]] || die 'Use semantic versioning (X.Y.Z)'
@@ -131,3 +136,8 @@ SUPPORTED_ARCH_NAMES=($(get_def_keys arch))
 for arch_name in "${SUPPORTED_ARCH_NAMES[@]}"; do
 	update_arch "${arch_name:?}"
 done
+
+if (( ${COMMIT:-0} )); then
+	git add "${CASK_FILE:?}"
+	git commit -m "feat: Prose ${NEW_VERSION:?}"
+fi
