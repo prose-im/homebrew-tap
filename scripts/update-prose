@@ -100,14 +100,23 @@ for arg in "$@"; do
 	esac
 done
 # Update command args to remove already parsed ones.
-set -- "${ARGS_[@]}"
+if [ ${#ARGS_[@]} -gt 0 ]; then
+	set -- "${ARGS_[@]}"
+else
+	set --
+fi
 unset ARGS_
 
 if (( ${COMMIT:-0} )); then
 	git diff-index --quiet HEAD || die 'Your index contains uncommitted changes. Please commit or stash them before creating a release.'
 fi
 
-[[ "$#" == 1 ]] && NEW_VERSION="${1:?}" || die "Syntax: ${SELF:?} X.Y.Z"
+if [[ "$#" == 0 ]]; then
+	echo -e "${Yellow:?}Info: Updating to latest published version${Color_Off:?}"
+	NEW_VERSION="$(curl -s https://files.prose.org/apps/updates/latest.json | jq -r .version)"
+else
+	NEW_VERSION="${1:?}"
+fi
 [[ "${NEW_VERSION:?}" =~ ^${SEMVER_REGEX}$ ]] || die 'Use semantic versioning (X.Y.Z)'
 
 # ===== MAIN LOGIC =====
