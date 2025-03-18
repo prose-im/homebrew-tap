@@ -15,7 +15,7 @@ cask "prose" do
   homepage "https://prose.org"
 
   livecheck do
-    url "https://raw.githubusercontent.com/prose-im/prose-app-web/refs/heads/master/package.json"
+    url "https://files.prose.org/apps/updates/latest.json"
     strategy :json do |json|
       json["version"]
     end
