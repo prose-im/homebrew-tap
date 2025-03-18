@@ -1,0 +1,25 @@
+name: Update
+on:
+  schedule:
+    - cron: "0 4 * * *"
+
+jobs:
+  update-casks:
+    name: Update casks
+    environment: bundle-publish
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # NOTE: Recommended by [the Task documentation](https://taskfile.dev/installation/#github-actions).
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Update the `prose` cask
+        run: task update:prose -- -y --commit
+
+      - name: Update the tap
+        run: git push origin ${{ github.ref }}
