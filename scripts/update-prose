@@ -9,6 +9,7 @@ set -eu
 Color_Off='\033[0m'
 Green='\033[0;32m'
 Yellow='\033[0;33m'
+Cyan='\033[0;36m'
 BRed='\033[1;31m'
 
 CASK_FILE='Casks/prose.rb'
@@ -22,6 +23,9 @@ KEY_VALUE_REGEX='([[:alnum:]]+): "([^"]+)"'
 die() {
 	echo -e "${BRed:?}${@:?"Must pass a message"}${Color_Off:?}" >&2
 	exit 1
+}
+info() {
+	echo -e "${Cyan:?}Info: ${1:?"Must pass a message"}${Color_Off:?}" >&2
 }
 
 # A simplified `sed` command that works on both macOS and Linux.
@@ -112,7 +116,7 @@ if (( ${COMMIT:-0} )); then
 fi
 
 if [[ "$#" == 0 ]]; then
-	echo -e "${Yellow:?}Info: Updating to latest published version${Color_Off:?}"
+	info 'Updating to latest published version'
 	NEW_VERSION="$(curl -s https://files.prose.org/apps/updates/latest.json | jq -r .version)"
 else
 	NEW_VERSION="${1:?}"
@@ -122,6 +126,10 @@ fi
 # ===== MAIN LOGIC =====
 
 OLD_VERSION="$(current_version "${CASK_FILE:?}")"
+if [[ "${OLD_VERSION:?}" == "${NEW_VERSION:?}" ]]; then
+	info 'Cask already up to date'
+	exit 0
+fi
 echo -e "Prose App: ${Yellow:?}${OLD_VERSION:?}${Color_Off:?} -> ${Green:?}${NEW_VERSION:?}${Color_Off:?}"
 
 if ! (( ${PROCEED:-0} )); then
