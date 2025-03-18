@@ -1,0 +1,133 @@
+#!/bin/bash
+
+set -eu
+
+# ===== CONSTANTS =====
+
+: ${SELF:="$(basename $0)"}
+
+Color_Off='\033[0m'
+Green='\033[0;32m'
+Yellow='\033[0;33m'
+BRed='\033[1;31m'
+
+CASK_FILE='Casks/prose.rb'
+SEMVER_REGEX='[0-9]+\.[0-9]+\.[0-9]+'
+CASK_VERSION_REGEX='^([[:space:]]+version ")'"(${SEMVER_REGEX:?})"'(")$'
+SHA256_HASH_REGEX='[[:alnum:]]{64}'
+KEY_VALUE_REGEX='([[:alnum:]]+): "([^"]+)"'
+
+# ===== HELPER FUNCTIONS =====
+
+die() {
+	echo -e "${BRed:?}${@:?"Must pass a message"}${Color_Off:?}" >&2
+	exit 1
+}
+
+# A simplified `sed` command that works on both macOS and Linux.
+replace() {
+	local in_place
+	[[ "$1" == "-i" ]] && { in_place=1; shift 1; }
+
+	if [[ "$(uname)" == "Darwin" ]]; then
+		(( $in_place )) && sed -i '' -E "$@" || sed -E "$@"
+	else
+		sed ${in_place:+-i} -E "$@"
+	fi
+}
+replace_cask_version() {
+	local new_version="${1:?}" file="${2:?}"
+	local pattern='s/'"${CASK_VERSION_REGEX:?}"'/\1'"${new_version}"'\3/'
+
+	replace -i "$pattern" "$file"
+}
+signature_regex() {
+	local arch_name="${1:?}"
+	echo "([[:space:]]${arch_name:?}:[[:space:]]+\")(${SHA256_HASH_REGEX:?})(\")"
+}
+replace_sha256() {
+	local arch_name="${1:?}" new_hash="${2:?}"
+	local pattern='s/'"$(signature_regex "${arch_name}")"'/\1'"${new_hash}"'\3/'
+
+	replace -i "$pattern" "${CASK_FILE:?}"
+}
+current_version() {
+	replace -n "s/${CASK_VERSION_REGEX}/\2/p" "${CASK_FILE:?}"
+}
+
+# Returns the line in the Cask file that defines a specific variable.
+#
+# For example, `get_def_line arch` might return `  arch arm: "aarch64", intel: "x86_64"`
+get_def_line() {
+	local var_name="${1:?}"
+	replace -n "/^[[:space:]]+${var_name}[[:space:]]/p" "${CASK_FILE:?}"
+}
+# Returns key-values as separated lines.
+#
+# For example, `  arch_short = on_arch_conditional arm: "aarch64", intel: "x64"` becomes:
+#
+# ```txt
+# arm: "aarch64"
+# intel: "x64"
+# ```
+get_def_key_values() {
+	local var_name="${1:?}"
+	get_def_line "${var_name}" | replace "s/[^:]+ (${KEY_VALUE_REGEX:?})/\1\n/g"
+}
+# Returns keys from key-value pairs.
+get_def_keys() {
+	local var_name="${1:?}"
+	get_def_key_values "${var_name}" | replace -n "s/^${KEY_VALUE_REGEX:?}/\1/p"
+}
+# Returns the value for a key in key-value pairs.
+get_def_value() {
+	local var_name="${1:?}" key_name="${2:?}"
+	get_def_key_values "${var_name}" | grep "^${key_name}:" | replace -n "s/^${KEY_VALUE_REGEX:?}/\2/p"
+}
+
+# ===== ARGUMENT PARSING =====
+
+ARGS_=()
+for arg in "$@"; do
+	case $arg in
+		-y|--yes) PROCEED=1 ;;
+		--help) die 'Unsupported' || help ;;
+		--dry-run) die 'Unsupported' || export DRY_RUN=1 ;;
+		--debug) die 'Unsupported' || export LOG_DEBUG=1 ;;
+		--trace) die 'Unsupported' || export LOG_TRACE=1 ;;
+		*) ARGS_+=("$arg") ;;
+	esac
+done
+# Update command args to remove already parsed ones.
+set -- "${ARGS_[@]}"
+unset ARGS_
+
+[[ "$#" == 1 ]] && NEW_VERSION="${1:?}" || die "Syntax: ${SELF:?} X.Y.Z"
+[[ "${NEW_VERSION:?}" =~ ^${SEMVER_REGEX}$ ]] || die 'Use semantic versioning (X.Y.Z)'
+
+# ===== MAIN LOGIC =====
+
+OLD_VERSION="$(current_version "${CASK_FILE:?}")"
+echo -e "Prose App: ${Yellow:?}${OLD_VERSION:?}${Color_Off:?} -> ${Green:?}${NEW_VERSION:?}${Color_Off:?}"
+
+if ! (( ${PROCEED:-0} )); then
+	read -p "Proceed? [y/N]: " ok
+	[[ "$ok" =~ ^[Yy]$ ]] || exit 1
+fi
+
+replace_cask_version "${NEW_VERSION:?}" "${CASK_FILE:?}"
+
+update_arch() {
+	local arch_name="${1:?}"
+	local arch="$(get_def_value arch "${arch_name}")"
+	local arch_short="$(get_def_value arch_short "${arch_name}")"
+	echo "Computing signature for '${arch_name}' (${arch:?})…"
+	local sha256_hash="$(curl -sL "https://files.prose.org/apps/versions/${NEW_VERSION:?}/macos/${arch:?}/Prose_${NEW_VERSION:?}_${arch_short:?}.dmg" | shasum -a 256 | cut -d " " -f 1)"
+	echo "-> ${sha256_hash:?}"
+	replace_sha256 "${arch_name}" "${sha256_hash:?}"
+}
+
+SUPPORTED_ARCH_NAMES=($(get_def_keys arch))
+for arch_name in "${SUPPORTED_ARCH_NAMES[@]}"; do
+	update_arch "${arch_name:?}"
+done
