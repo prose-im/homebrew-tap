@@ -1,12 +1,12 @@
 cask "prose" do
-  version "0.6.1"
+  version "0.6.2"
 
   arch arm: "aarch64", intel: "x86_64"
   arch_short = on_arch_conditional arm: "aarch64", intel: "x64"
   platform = "macos"
 
-  sha256 arm:   "9c51efe805664368eb0ce8ec537dedd7e77a07fece2396cc501a763248054b4c",
-         intel: "aa22e4771ffa05c5c47c37a635161ccbbf5ee71c21b497cd5289944f12713054"
+  sha256 arm:   "3b15890e6d2e6c1a697622e1f664b93b66336f9e2ad5efe5fe040dd5ea6a5d0f",
+         intel: "10a62adbb8580f1766e340144ac2be59ca05748420b74a4030e84e819824893f"
 
   url "https://files.prose.org/apps/versions/#{version}/#{platform}/#{arch}/Prose_#{version}_#{arch_short}.dmg"
   name "Prose"
