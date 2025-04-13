@@ -155,6 +155,10 @@ for arch_name in "${SUPPORTED_ARCH_NAMES[@]}"; do
 done
 
 if (( ${COMMIT:-0} )); then
+	if [ -n "$GITHUB_ACTIONS" ]; then
+		git config user.name "Prose IM Homebrew Tap updater"
+	fi
+
 	git add "${CASK_FILE:?}"
 	git commit -m "feat: Prose ${NEW_VERSION:?}"
 fi
